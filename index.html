@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#008140" />
+  <title>Белоруснефть · «Вандруй ЦікаVа» — предиктивный предзаказ еды</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23008140'/%3E%3Ctext x='32' y='43' font-family='Arial' font-size='24' font-weight='bold' fill='white' text-anchor='middle'%3EБН%3C/text%3E%3C/svg%3E" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bn: {
+              green:     '#008140',
+              greendark: '#006231',
+              greendeep: '#014D27',
+              accent:    '#17C464',
+              ink:       '#222222',
+              muted:     '#697077',
+              bg:        '#F4F6F8',
+              line:      '#E4E9EE',
+            },
+          },
+          fontFamily: { sans: ['Inter', 'Roboto', 'Arial', 'sans-serif'] },
+          keyframes: {
+            screenIn:  { '0%': { opacity: '0', transform: 'translateX(22px)' }, '100%': { opacity: '1', transform: 'translateX(0)' } },
+            pushIn:    { '0%': { opacity: '0', transform: 'translateY(-130%) scale(.96)' }, '65%': { opacity: '1', transform: 'translateY(8px) scale(1)' }, '100%': { opacity: '1', transform: 'translateY(0) scale(1)' } },
+            fadeUp:    { '0%': { opacity: '0', transform: 'translate(-50%, 10px)' }, '100%': { opacity: '1', transform: 'translate(-50%, 0)' } },
+            popIn:     { '0%': { transform: 'scale(.35)', opacity: '0' }, '60%': { transform: 'scale(1.12)', opacity: '1' }, '100%': { transform: 'scale(1)', opacity: '1' } },
+            glowPulse: { '0%,100%': { opacity: '.5', transform: 'scale(1)' }, '50%': { opacity: '.08', transform: 'scale(1.45)' } },
+            dashMove:  { to: { strokeDashoffset: '-32' } },
+            pingSoft:  { '0%': { transform: 'scale(1)', opacity: '.7' }, '80%,100%': { transform: 'scale(2.4)', opacity: '0' } },
+          },
+          animation: {
+            screen:    'screenIn .34s cubic-bezier(.22,.9,.32,1) both',
+            push:      'pushIn .6s cubic-bezier(.22,1.1,.32,1) both',
+            fadeUp:    'fadeUp .28s ease both',
+            pop:       'popIn .55s cubic-bezier(.22,1.2,.36,1) both',
+            glow:      'glowPulse 1.9s ease-in-out infinite',
+            dash:      'dashMove 1.15s linear infinite',
+            pingSoft:  'pingSoft 1.7s cubic-bezier(0,0,.2,1) infinite',
+          },
+        },
+      },
+    };
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #root { 
+      height: 100%; 
+      width: 100%;
+      overflow: hidden;
+    }
+    body { 
+      -webkit-tap-highlight-color: transparent; 
+      background: #008140;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
+    
+    .app-container {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      max-width: 100%;
+      max-height: 100%;
+      background: #F4F6F8;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    const ICONS = {
+      nav:         <polygon points="3 11 22 2 13 21 11 13 3 11" />,
+      bell:        <React.Fragment><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></React.Fragment>,
+      arrowLeft:   <React.Fragment><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></React.Fragment>,
+      flame:       <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />,
+      home:        <React.Fragment><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></React.Fragment>,
+      fuel:        <React.Fragment><line x1="3" x2="15" y1="22" y2="22" /><line x1="4" x2="14" y1="9" y2="9" /><path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18" /><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5" /></React.Fragment>,
+      coffee:      <React.Fragment><path d="M17 8h1a4 4 0 1 1 0 8h-1" /><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" /><line x1="6" x2="6" y1="2" y2="4" /><line x1="10" x2="10" y1="2" y2="4" /><line x1="14" x2="14" y1="2" y2="4" /></React.Fragment>,
+      user:        <React.Fragment><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></React.Fragment>,
+      route:       <React.Fragment><circle cx="6" cy="19" r="3" /><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /><circle cx="18" cy="5" r="3" /></React.Fragment>,
+      zap:         <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />,
+      package:     <React.Fragment><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" /></React.Fragment>,
+      shield:      <React.Fragment><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="m9 12 2 2 4-4" /></React.Fragment>,
+      info:        <React.Fragment><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></React.Fragment>,
+      check:       <path d="M20 6 9 17l-5-5" />,
+      checkCircle: <React.Fragment><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></React.Fragment>,
+      mapPin:      <React.Fragment><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></React.Fragment>,
+      qr:          <React.Fragment><rect width="5" height="5" x="3" y="3" rx="1" /><rect width="5" height="5" x="16" y="3" rx="1" /><rect width="5" height="5" x="3" y="16" rx="1" /><path d="M21 16h-3a2 2 0 0 0-2 2v3" /><path d="M21 21v.01" /><path d="M12 7v3a2 2 0 0 1-2 2H7" /><path d="M3 12h.01" /><path d="M12 3h.01" /><path d="M12 16v.01" /><path d="M16 12h1" /><path d="M21 12v.01" /><path d="M12 21v-1" /></React.Fragment>,
+      sparkles:    <React.Fragment><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" /><path d="M20 3v4" /><path d="M22 5h-4" /><path d="M4 17v2" /><path d="M5 18H3" /></React.Fragment>,
+      hotdog:      <React.Fragment><path d="M4 13.5C4 9.9 7.6 7 12 7s8 2.9 8 6.5" /><path d="M3 13.5c1.7-1.3 2.8 1.3 4.5 0s2.8 1.3 4.5 0 2.8 1.3 4.5 0c1-.8 2-.6 3.5.1" /><path d="M4 13.5c0 2.6 3.6 4.5 8 4.5s8-1.9 8-4.5" /></React.Fragment>,
+      cookie:      <React.Fragment><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5" /><path d="M8.5 8.5v.01" /><path d="M16 15.5v.01" /><path d="M12 12v.01" /><path d="M11 17v.01" /><path d="M7 14v.01" /></React.Fragment>,
+      bag:         <React.Fragment><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></React.Fragment>,
+    };
+
+    function Icon({ name, size = 20, className = '', strokeWidth = 2 }) {
+      return (
+        <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          {ICONS[name]}
+        </svg>
+      );
+    }
+
+    function Spinner({ size = 18 }) {
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="animate-spin">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.3" strokeWidth="3" />
+          <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      );
+    }
+
+    function PseudoQR({ value, size = 186 }) {
+      const n = 25;
+      let h = 2166136261;
+      for (let i = 0; i < value.length; i++) { h ^= value.charCodeAt(i); h = Math.imul(h, 16777619); }
+      const rnd = (i) => {
+        let x = (h ^ Math.imul(i + 1, 2654435761)) >>> 0;
+        x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0;
+        return x / 4294967296;
+      };
+      const inFinder = (r, c) => (r < 7 && c < 7) || (r < 7 && c >= n - 7) || (r >= n - 7 && c < 7);
+      const finderDark = (r, c) => {
+        const fr = r < 7 ? r : r - (n - 7);
+        const fc = c < 7 ? c : c - (n - 7);
+        const ring = Math.max(Math.abs(fr - 3), Math.abs(fc - 3));
+        return ring === 3 || ring <= 1;
+      };
+      const cells = [];
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          let dark;
+          if (inFinder(r, c)) dark = finderDark(r, c);
+          else if (r === 6 || c === 6) dark = (r + c) % 2 === 0;
+          else dark = rnd(r * n + c) > 0.52;
+          if (dark) cells.push(<rect key={r + '-' + c} x={c} y={r} width="1" height="1" />);
+        }
+      }
+      return (
+        <svg width={size} height={size} viewBox="-2 -2 29 29" className="block bg-white rounded-md">
+          <g fill="#1F2937">{cells}</g>
+        </svg>
+      );
+    }
+
+    function QRCode({ value, size = 186 }) {
+      const hostRef = useRef(null);
+      const [fallback, setFallback] = useState(typeof window === 'undefined' || !window.QRCode);
+      useEffect(() => {
+        if (fallback || !hostRef.current) return;
+        try {
+          hostRef.current.innerHTML = '';
+          new window.QRCode(hostRef.current, {
+            text: value, width: size, height: size,
+            colorDark: '#1F2937', colorLight: '#FFFFFF',
+            correctLevel: window.QRCode.CorrectLevel.M,
+          });
+        } catch (e) { setFallback(true); }
+      }, [value, size, fallback]);
+      if (fallback) return <PseudoQR value={value} size={size} />;
+      return <div ref={hostRef} style={{ width: size, height: size }} />;
+    }
+
+    const HEADER_CFG = {
+      road:   { title: 'Белоруснефть',  sub: 'Заправка · вы в пути',            back: false },
+      combo:  { title: 'Комбо-предложение', sub: 'Предзаказ по GPS-трекингу', back: true },
+      pay:    { title: 'Заказ №312', sub: 'Оплата подтверждена',            back: false },
+      pickup: { title: 'Самовывоз', sub: 'АЗС №77 · зона кафе',             back: false },
+    };
+
+    function Header({ screen, onBack, onBell }) {
+      const cfg = HEADER_CFG[screen];
+      return (
+        <header className="shrink-0 relative z-40 bg-gradient-to-r from-bn-green to-bn-greendark text-white">
+          <div className="flex items-center justify-between px-6 pt-2 text-[11px] font-bold">
+            <span className="tabular-nums">9:41</span>
+            <div className="flex items-center gap-1.5 opacity-90">
+              <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M1.5 4a10 10 0 0 1 14 0"/><path d="M4 6.8a6 6 0 0 1 8 0"/><circle cx="8" cy="9.4" r="1.1" fill="currentColor" stroke="none"/></svg>
+              <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="0.6" y="0.6" width="19.8" height="10.8" rx="3" stroke="currentColor" opacity="0.45" strokeWidth="1.2"/><rect x="2.4" y="2.4" width="13" height="7.2" rx="1.6" fill="currentColor"/><path d="M22 4v4a2.2 2.2 0 0 0 0-4Z" fill="currentColor" opacity="0.45"/></svg>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 px-4 pt-2.5 pb-3.5">
+            {cfg.back ? (
+              <button onClick={onBack} aria-label="Назад"
+                className="w-9 h-9 -ml-1.5 rounded-full hover:bg-white/10 active:bg-white/20 flex items-center justify-center transition-colors">
+                <Icon name="arrowLeft" size={21} />
+              </button>
+            ) : (
+              <div className="w-9 h-9 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-50">
+                  <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+                  <path d="m3.3 7 8.7 5 8.7-5"/>
+                  <path d="M12 22V12"/>
+                </svg>
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-[16px] font-black leading-tight truncate">{cfg.title}</p>
+              <p className="text-[11px] text-white/70 leading-tight truncate">{cfg.sub}</p>
+            </div>
+            <button onClick={onBell} aria-label="Уведомления"
+              className="ml-auto w-9 h-9 rounded-full hover:bg-white/10 active:bg-white/20 flex items-center justify-center relative transition-colors">
+              <Icon name="bell" size={19} />
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-bn-accent border-2 border-bn-green" />
+            </button>
+          </div>
+        </header>
+      );
+    }
+
+    const TABS = [
+      { id: 'home',    label: 'Главная', icon: 'home' },
+      { id: 'azs',     label: 'АЗС',     icon: 'fuel' },
+      { id: 'order',   label: 'Заказ',   icon: 'coffee' },
+      { id: 'profile', label: 'Профиль', icon: 'user' },
+    ];
+
+    function BottomNav({ onTab }) {
+      return (
+        <nav className="shrink-0 bg-white border-t border-bn-line px-2 pt-1.5 pb-2 flex items-stretch">
+          {TABS.map((t) => {
+            const active = t.id === 'order';
+            return (
+              <button key={t.id} onClick={() => onTab(t.id)}
+                className={'flex-1 flex flex-col items-center gap-0.5 py-1 rounded-xl active:scale-95 transition ' + (active ? 'text-bn-green' : 'text-bn-muted hover:text-bn-ink')}>
+                <span className={'w-12 h-7 rounded-full flex items-center justify-center ' + (active ? 'bg-bn-green/10' : '')}>
+                  <Icon name={t.icon} size={19} />
+                </span>
+                <span className={'text-[9.5px] font-bold ' + (active ? 'text-bn-green' : '')}>{t.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      );
+    }
+
+    const ROUTE_D = 'M40 336 C 72 272, 120 242, 172 218 C 214 198, 242 170, 251 120';
+
+    function SimMap() {
+      return (
+        <svg viewBox="0 0 400 360" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full">
+          <rect width="400" height="360" fill="#E9EFE8" />
+          <g fill="#DFE8DD">
+            <rect x="22" y="26" width="98" height="66" rx="14" />
+            <rect x="150" y="34" width="84" height="58" rx="14" />
+            <rect x="296" y="52" width="86" height="76" rx="14" />
+            <rect x="34" y="150" width="72" height="58" rx="12" />
+            <rect x="286" y="252" width="96" height="70" rx="14" />
+            <rect x="150" y="286" width="90" height="56" rx="14" />
+          </g>
+          <circle cx="352" cy="300" r="34" fill="#D3E4CF" />
+          <g stroke="#FFFFFF" strokeWidth="5" fill="none" strokeLinecap="round" opacity="0.9">
+            <path d="M-10 96 C 90 86, 210 108, 410 74" />
+            <path d="M64 370 C 84 280, 60 190, 92 40" />
+            <path d="M310 370 C 322 300, 344 260, 410 236" />
+            <path d="M236 194 C 243 168, 247 146, 251 122" />
+          </g>
+          <path d="M-10 236 C 80 222, 162 226, 236 194 S 366 150, 410 144" stroke="#E4C445" strokeWidth="12" fill="none" />
+          <path d="M-10 236 C 80 222, 162 226, 236 194 S 366 150, 410 144" stroke="#F7D154" strokeWidth="8.5" fill="none" />
+          <g transform="translate(118,214)">
+            <rect x="-24" y="-11" width="48" height="22" rx="7" fill="#FFFFFF" stroke="#E4E9EE" />
+            <text textAnchor="middle" y="4.5" fontSize="11" fontWeight="800" fill="#5B6470" fontFamily="Inter, Arial, sans-serif">М-1</text>
+          </g>
+          <path d={ROUTE_D} fill="none" stroke="#FFFFFF" strokeWidth="9" strokeLinecap="round" />
+          <path d={ROUTE_D} fill="none" stroke="#008140" strokeWidth="5" strokeLinecap="round" />
+          <path d={ROUTE_D} fill="none" stroke="#17C464" strokeWidth="5" strokeLinecap="round" strokeDasharray="0.5 15.5" opacity="0.95" className="animate-dash" />
+          <g transform="translate(251,118)">
+            <circle r="24" fill="#17C464" opacity="0.14">
+              <animate attributeName="r" values="20;30;20" dur="3.2s" repeatCount="indefinite" />
+            </circle>
+            <circle r="24" fill="none" stroke="#17C464" strokeWidth="2" strokeDasharray="5 6">
+              <animate attributeName="r" values="20;30;20" dur="3.2s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values=".85;.25;.85" dur="3.2s" repeatCount="indefinite" />
+            </circle>
+            <path d="M0 8 C 0 8, -10 -2.5, -10 -11 a10 10 0 0 1 20 0 C 10 -2.5, 0 8, 0 8 Z" fill="#008140" stroke="#FFFFFF" strokeWidth="2.5" />
+            <circle cy="-11" r="3.4" fill="#FFFFFF" />
+            <g transform="translate(0,26)">
+              <rect x="-36" y="-10" width="72" height="20" rx="10" fill="#FFFFFF" stroke="#E4E9EE" />
+              <text textAnchor="middle" y="4" fontSize="10.5" fontWeight="700" fill="#222222" fontFamily="Inter, Arial, sans-serif">АЗС №77</text>
+            </g>
+          </g>
+          <g>
+            <circle r="10.5" fill="#008140" stroke="#FFFFFF" strokeWidth="3" />
+            <polygon points="6,0 -4,5 -1.6,0 -4,-5" fill="#FFFFFF" />
+            <animateMotion dur="22s" repeatCount="indefinite" rotate="auto" path={ROUTE_D} />
+          </g>
+        </svg>
+      );
+    }
+
+    function PushCard({ onOpen, onDismiss, leaving }) {
+      return (
+        <div className={'absolute top-3 left-3 right-3 z-40 ' + (leaving
+          ? 'opacity-0 -translate-y-8 scale-[0.97] transition-all duration-300 ease-in'
+          : 'animate-push')}>
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200/80 p-3.5">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-[9px] bg-bn-green text-white flex items-center justify-center text-[10px] font-black tracking-tight shrink-0">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+                  <path d="m3.3 7 8.7 5 8.7-5"/>
+                  <path d="M12 22V12"/>
+                </svg>
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-bn-muted">Белоруснефть · Заправка</span>
+              <span className="ml-auto text-[11px] text-bn-muted">сейчас</span>
+            </div>
+            <p className="mt-2 text-[13.5px] leading-snug text-bn-ink">
+              ☕ Время для кофе? Закажите любимое комбо в 1 клик! Еда будет горячей ровно к вашему приезду. Без очередей на кассе.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <button onClick={onOpen}
+                className="flex-1 h-10 rounded-xl bg-bn-green hover:bg-bn-greendark active:scale-[0.98] transition-all text-white text-[13.5px] font-bold shadow-md shadow-bn-green/25">
+                Посмотреть комбо
+              </button>
+              <button onClick={onDismiss}
+                className="h-10 px-3 rounded-xl text-[13px] font-semibold text-bn-muted hover:text-bn-ink hover:bg-gray-100 transition-colors">
+                Пропустить
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function RoadScreen({ pushState, onOpenCombo, onDismissPush, onResendPush }) {
+      return (
+        <div className="absolute inset-0 animate-screen">
+          <SimMap />
+
+          <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/90 backdrop-blur px-2.5 py-1.5 rounded-full shadow text-[11px] font-bold text-bn-ink">
+            <Icon name="route" size={13} className="text-bn-green" /> Трасса М-1 · 14 км
+          </div>
+          <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 bg-white/90 backdrop-blur px-2.5 py-1.5 rounded-full shadow text-[11px] font-bold text-bn-ink">
+            <span className="w-1.5 h-1.5 rounded-full bg-bn-accent animate-pulse" /> GPS
+          </div>
+
+          {pushState === 'visible' && <PushCard onOpen={onOpenCombo} onDismiss={onDismissPush} />}
+          {pushState === 'leaving' && <PushCard leaving onOpen={onOpenCombo} onDismiss={onDismissPush} />}
+          {pushState === 'dismissed' && (
+            <button onClick={onResendPush}
+              className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 animate-fadeUp flex items-center gap-2 bg-white rounded-full shadow-lg border border-gray-200/80 pl-2.5 pr-4 py-2 text-[12.5px] font-bold text-bn-ink hover:bg-gray-50 active:scale-95 transition">
+              <span className="w-7 h-7 rounded-full bg-bn-green/10 text-bn-green flex items-center justify-center">
+                <Icon name="bell" size={14} />
+              </span>
+              Показать предложение ещё раз
+            </button>
+          )}
+
+          <div className="absolute left-3 right-3 bottom-3 z-20">
+            <div className="bg-white/95 backdrop-blur rounded-2xl shadow-xl border border-gray-100 p-3.5 flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-bn-green flex items-center justify-center text-white shrink-0 shadow-md shadow-bn-green/30">
+                <Icon name="nav" size={20} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[14.5px] font-extrabold text-bn-ink leading-tight">Вы на маршруте</p>
+                <p className="text-[12px] text-bn-muted leading-snug mt-0.5">
+                  До ближайшей АЗС №77 (трасса М-1) — <span className="font-bold text-bn-ink">12 минут</span>
+                </p>
+              </div>
+              <div className="ml-auto text-right shrink-0 pl-2">
+                <p className="text-[16px] font-extrabold text-bn-green tabular-nums leading-none">12<span className="text-[11px] font-bold"> мин</span></p>
+                <p className="text-[10.5px] text-bn-muted mt-1">14 км</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ComboTile({ icon, label, sub }) {
+      return (
+        <div className="bg-white rounded-2xl p-2.5 flex flex-col items-center text-center shadow-sm border border-bn-line">
+          <div className="w-11 h-11 rounded-full bg-bn-green/10 text-bn-green flex items-center justify-center">
+            <Icon name={icon} size={22} />
+          </div>
+          <p className="mt-2 text-[10.5px] font-bold text-bn-ink leading-tight">{label}</p>
+          <p className="text-[9.5px] text-bn-muted mt-0.5">{sub}</p>
+        </div>
+      );
+    }
+
+    function Feature({ icon, title, sub, tone = 'green' }) {
+      const tones = {
+        green:  'bg-bn-green/10 text-bn-green',
+        accent: 'bg-bn-accent/10 text-bn-accent',
+      };
+      return (
+        <div className="flex items-start gap-3">
+          <div className={'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ' + tones[tone]}>
+            <Icon name={icon} size={18} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[13px] font-bold text-bn-ink leading-snug">{title}</p>
+            <p className="text-[11.5px] text-bn-muted leading-snug mt-0.5">{sub}</p>
+          </div>
+        </div>
+      );
+    }
+
+    function ComboScreen({ onBack, onConfirm, paying }) {
+      return (
+        <div className="absolute inset-0 flex flex-col animate-screen">
+          <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-4 space-y-3.5 pb-4">
+            {/* карточка комбо - исправлена проблема с перекрытием */}
+            <div className="bg-white rounded-2xl border border-bn-line shadow-sm overflow-hidden relative">
+              {/* Зеленый фон только для верхней части */}
+              <div className="relative bg-gradient-to-br from-bn-green to-bn-greendeep px-5 pt-5 pb-16">
+                <span className="absolute top-4 right-4 inline-flex items-center gap-1 bg-white/15 border border-white/20 text-white text-[11px] font-extrabold rounded-full px-2.5 py-1">
+                  <Icon name="sparkles" size={12} /> ВЫГОДА 24%
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-widest text-emerald-100/90 bg-white/10 rounded-full px-2.5 py-1 border border-white/15">
+                  Предзаказ по GPS
+                </span>
+                <h1 className="mt-2.5 text-[22px] font-black text-white leading-tight">Комбо «Вандруй ЦікаVа»</h1>
+                <p className="mt-1 text-[12.5px] text-white/75 leading-snug">Горячий перекус будет готов ровно к вашему приезду на АЗС</p>
+              </div>
+              
+              {/* Карточки товаров - теперь на белом фоне, не перекрывают */}
+              <div className="px-4 -mt-8 pb-4 relative z-10">
+                <div className="grid grid-cols-3 gap-2">
+                  <ComboTile icon="coffee" label="Большой Капучино" sub="300 мл" />
+                  <ComboTile icon="hotdog" label="Премиум Френч-дог" sub="по-французски" />
+                  <ComboTile icon="cookie" label="Снек-батончик" sub="на выбор" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-bn-line shadow-sm p-4 flex items-center">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-bn-muted">Цена комбо</p>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-[27px] font-black text-bn-green leading-none tabular-nums">9.50 <span className="text-[15px] font-extrabold">BYN</span></span>
+                  <span className="text-[14px] font-semibold text-bn-muted line-through tabular-nums">12.50</span>
+                </div>
+              </div>
+              <div className="ml-auto">
+                <span className="inline-flex items-center gap-1 bg-bn-accent/10 text-bn-accent text-[11.5px] font-extrabold rounded-full px-2.5 py-1.5">
+                  <Icon name="zap" size={12} /> −3.00 BYN
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-bn-line shadow-sm p-4">
+              <p className="text-[13.5px] font-extrabold text-bn-ink mb-3">Как это работает</p>
+              <div className="space-y-3">
+                <Feature icon="route" title="Готовка стартует по геозоне"
+                  sub="Кухня АЗС №77 начнёт готовить заказ автоматически за 5 минут до вашего прибытия" />
+                <Feature icon="package" tone="accent" title="Тепловая полка «Вандруй ЦікаVа»"
+                  sub="Заберите заказ без очереди — полка откроется по QR-коду" />
+                <Feature icon="shield" title="Безопасная оплата"
+                  sub="Данные защищены · оплата картой •• 4589" />
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5 flex items-start gap-2.5">
+              <Icon name="info" size={17} className="text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-[11.5px] leading-snug text-amber-900">
+                Безопасная оплата. Заказ начнет готовиться автоматически по GPS-трекингу за 5 минут до вашего прибытия. <span className="font-extrabold">Отмена невозможна.</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0 px-4 pb-3 pt-2 bg-gradient-to-t from-bn-bg via-bn-bg/95 to-transparent">
+            <button onClick={onConfirm} disabled={paying}
+              className="w-full h-[52px] rounded-2xl bg-bn-green hover:bg-bn-greendark active:scale-[0.99] disabled:opacity-80 transition-all text-white text-[15px] font-extrabold shadow-lg shadow-bn-green/30 flex items-center justify-center gap-2">
+              {paying ? (<React.Fragment><Spinner /> Обработка оплаты…</React.Fragment>) : 'Подтвердить и оплатить (9.50 BYN)'}
+            </button>
+            <p className="mt-2 text-center text-[10.5px] text-bn-muted">Оплата картой •• 4589 · ООО «Белоруснефть» · демо-режим</p>
+          </div>
+        </div>
+      );
+    }
+
+    function fmtEta(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+    function EtaRing({ eta, total }) {
+      const R = 56;
+      const C = 2 * Math.PI * R;
+      const frac = Math.max(0, Math.min(1, eta / total));
+      return (
+        <div className="relative w-[152px] h-[152px] mx-auto">
+          <svg width="152" height="152" viewBox="0 0 152 152" className="-rotate-90">
+            <circle cx="76" cy="76" r={R} fill="none" stroke="#E9EDF1" strokeWidth="10" />
+            <circle cx="76" cy="76" r={R} fill="none" stroke="#17C464" strokeWidth="10" strokeLinecap="round"
+              strokeDasharray={C} strokeDashoffset={C * (1 - frac)} style={{ transition: 'stroke-dashoffset 1s linear' }} />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-[32px] font-black text-bn-ink tabular-nums leading-none">{fmtEta(eta)}</span>
+            <span className="mt-1.5 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-bn-muted">ETA · до готовности</span>
+          </div>
+        </div>
+      );
+    }
+
+    function Stepper({ phase }) {
+      const steps = [
+        { label: 'Оплачено',  state: 'done' },
+        { label: phase === 'A' ? 'Ожидание' : 'Готовится', state: phase === 'A' ? 'current' : 'done' },
+        { label: 'Выдача',    state: phase === 'A' ? 'pending' : 'current' },
+      ];
+      return (
+        <div className="bg-white rounded-2xl border border-bn-line shadow-sm px-4 py-3.5 flex items-center">
+          {steps.map((s, i) => (
+            <React.Fragment key={s.label}>
+              {i > 0 && (
+                <div className={'flex-1 h-[3px] rounded-full mx-2.5 ' + (steps[i - 1].state === 'done' ? 'bg-bn-accent/70' : 'bg-gray-100')} />
+              )}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className={'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ' +
+                  (s.state === 'done' ? 'bg-bn-accent text-white' : s.state === 'current' ? 'bg-bn-green/10 text-bn-green' : 'bg-gray-100 text-gray-400')}>
+                  {s.state === 'done'
+                    ? <Icon name="check" size={11} strokeWidth={3.5} />
+                    : s.state === 'current'
+                      ? <span className="w-1.5 h-1.5 rounded-full bg-bn-green animate-pulse" />
+                      : '·'}
+                </span>
+                <span className={'text-[11px] font-bold ' + (s.state === 'pending' ? 'text-gray-400' : 'text-bn-ink')}>{s.label}</span>
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
+      );
+    }
+
+    function PaymentScreen({ onArrive }) {
+      const [phase, setPhase] = useState('A');
+      const [distance, setDistance] = useState(8.0);
+      const [eta, setEta] = useState(300);
+
+      useEffect(() => {
+        if (phase !== 'A') return;
+        const dist = setInterval(() => setDistance((d) => Math.max(5.1, +(d - 0.2).toFixed(1))), 1600);
+        const auto = setTimeout(() => setPhase('B'), 12000);
+        return () => { clearInterval(dist); clearTimeout(auto); };
+      }, [phase]);
+
+      useEffect(() => {
+        if (phase !== 'B') return;
+        if (eta <= 0) { onArrive(); return; }
+        const t = setTimeout(() => setEta((v) => v - 1), 1000);
+        return () => clearTimeout(t);
+      }, [phase, eta, onArrive]);
+
+      const progress = Math.min(100, Math.round(((8 - distance) / 3) * 100));
+      const distStr = distance.toFixed(1).replace('.', ',');
+
+      return (
+        <div className="absolute inset-0 flex flex-col animate-screen">
+          <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-5 space-y-3.5">
+            <div className="flex flex-col items-center pt-1 pb-1">
+              <div className="relative w-20 h-20">
+                <div className="absolute inset-0 rounded-full bg-bn-accent animate-glow" />
+                <div className="relative w-20 h-20 rounded-full bg-bn-accent shadow-xl shadow-bn-accent/40 flex items-center justify-center animate-pop">
+                  <Icon name="check" size={42} strokeWidth={3.2} className="text-white" />
+                </div>
+              </div>
+              <h2 className="mt-4 text-[20px] font-black text-bn-ink">Оплачено.</h2>
+              <p className="mt-0.5 text-[13.5px] text-bn-muted">Заказ <span className="font-bold text-bn-ink">№312</span> зафиксирован</p>
+            </div>
+
+            <Stepper phase={phase} />
+
+            <div className="bg-white rounded-2xl border border-bn-line shadow-sm p-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-bn-green/10 text-bn-green flex items-center justify-center shrink-0">
+                  <Icon name="bag" size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-extrabold text-bn-ink leading-snug">Комбо «Вандруй ЦікаVа»</p>
+                  <p className="text-[11.5px] text-bn-muted">Капучино б. · Френч-дог · снек</p>
+                </div>
+                <div className="ml-auto text-right shrink-0">
+                  <p className="text-[15px] font-black text-bn-green tabular-nums">9.50 BYN</p>
+                  <p className="text-[10.5px] text-bn-muted line-through tabular-nums">12.50 BYN</p>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-dashed border-bn-line flex items-center gap-2 text-[11.5px] text-bn-muted">
+                <Icon name="mapPin" size={14} className="text-bn-green shrink-0" />
+                Выдача: АЗС №77 · трасса М-1 · карта •• 4589
+              </div>
+            </div>
+
+            {phase === 'A' ? (
+              <div className="bg-white rounded-2xl border border-bn-line shadow-sm p-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-3 w-3 shrink-0">
+                    <span className="animate-pingSoft absolute inline-flex h-full w-full rounded-full bg-bn-accent" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-bn-accent" />
+                  </span>
+                  <p className="text-[14px] font-extrabold text-bn-ink">Ожидание приближения к АЗС</p>
+                </div>
+                <p className="mt-2.5 text-[12.5px] text-bn-muted leading-snug">
+                  Вы в <span className="font-extrabold text-bn-ink tabular-nums">{distStr} км</span> от точки. Кухня стартует автоматически по GPS-трекингу.
+                </p>
+                <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-full rounded-full bg-gradient-to-r from-bn-green to-bn-accent transition-all duration-1000" style={{ width: progress + '%' }} />
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-bn-muted">
+                    <Icon name="zap" size={11} className="text-bn-accent" /> GPS-трекинг активен
+                  </span>
+                  <button onClick={() => setPhase('B')}
+                    className="text-[12px] font-extrabold text-bn-green hover:underline active:scale-95 transition">
+                    Симулировать приближение →
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-bn-accent/30 bg-gradient-to-b from-bn-accent/10 via-white to-white shadow-sm p-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-bn-accent/15 text-bn-accent flex items-center justify-center shrink-0 animate-pulse">
+                    <Icon name="flame" size={19} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-extrabold text-bn-ink leading-snug">🔥 Приближение обнаружено!</p>
+                    <p className="text-[11.5px] text-bn-muted leading-snug mt-0.5">Кухня АЗС №77 начала приготовление вашего хот-дога</p>
+                  </div>
+                </div>
+                <div className="mt-4"><EtaRing eta={eta} total={300} /></div>
+                <p className="mt-3 text-center text-[11.5px] text-bn-muted">
+                  Заказ №312 · тепловая полка «Вандруй ЦікаVа» прогревается
+                </p>
+                <button onClick={onArrive}
+                  className="mt-3 w-full h-10 rounded-xl border border-bn-green/25 text-bn-green text-[12.5px] font-extrabold hover:bg-bn-green/5 active:scale-[0.98] transition">
+                  Симулировать прибытие на АЗС
+                </button>
+              </div>
+            )}
+
+            <p className="text-center text-[10px] text-bn-muted pb-2">Демо-режим: таймеры и геозона симулированы локально</p>
+          </div>
+        </div>
+      );
+    }
+
+    const PICKUP_STEPS = [
+      'Пройдите к зоне кафе, минуя общую очередь на кассу.',
+      'Найдите автоматическую тепловую полку «Вандруй ЦікаVа».',
+      'Поднесите этот QR-код к сканеру полки.',
+      'Заберите ваш горячий заказ — полка откроется автоматически за 30 секунд.',
+    ];
+
+    function PickupScreen({ onHome }) {
+      return (
+        <div className="absolute inset-0 flex flex-col animate-screen">
+          <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-4 space-y-3.5">
+            <div className="rounded-2xl bg-gradient-to-r from-bn-green to-bn-greendark text-white p-4 flex items-center gap-3 shadow-lg shadow-bn-green/25">
+              <div className="w-11 h-11 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+                <Icon name="checkCircle" size={24} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[15px] font-black leading-tight">Вы на месте — АЗС №77</p>
+                <p className="text-[11.5px] text-white/80 mt-0.5 leading-snug">Заказ №312 готов и ждёт на тепловой полке</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-bn-line shadow-sm p-5 flex flex-col items-center">
+              <span className="inline-flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-bn-green">
+                <Icon name="qr" size={14} /> QR-код самовывоза
+              </span>
+              <div className="mt-3.5 p-3 rounded-3xl border-2 border-dashed border-bn-line">
+                <QRCode value="BN-CLUB|ORDER-312|AZS-77|VANDRUY-CIKAVA" size={186} />
+              </div>
+              <p className="mt-3.5 text-[13.5px] font-extrabold text-bn-ink">Комбо «Вандруй ЦікаVа» · 9.50 BYN</p>
+              <p className="mt-0.5 text-[11.5px] text-bn-muted">Заказ №312 · АЗС №77 · трасса М-1</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-bn-line shadow-sm p-4">
+              <p className="text-[13.5px] font-extrabold text-bn-ink mb-3.5">Как забрать заказ</p>
+              <ol className="space-y-3.5">
+                {PICKUP_STEPS.map((s, i) => (
+                  <li key={i} className="flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full bg-bn-green text-white text-[11.5px] font-black flex items-center justify-center shrink-0 mt-[-1px]">{i + 1}</span>
+                    <p className="text-[12.5px] leading-snug text-bn-ink/90">{s}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+
+          <div className="shrink-0 px-4 pb-3 pt-2 bg-gradient-to-t from-bn-bg via-bn-bg/95 to-transparent">
+            <button onClick={onHome}
+              className="w-full h-[52px] rounded-2xl bg-bn-green hover:bg-bn-greendark active:scale-[0.99] transition-all text-white text-[15px] font-extrabold shadow-lg shadow-bn-green/30">
+              В главное меню
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [screen, setScreen] = useState('road');
+      const [pushState, setPushState] = useState('waiting');
+      const [paying, setPaying] = useState(false);
+      const [toast, setToast] = useState(null);
+      const toastTimer = useRef(null);
+
+      const showToast = useCallback((msg) => {
+        setToast(msg);
+        clearTimeout(toastTimer.current);
+        toastTimer.current = setTimeout(() => setToast(null), 2400);
+      }, []);
+
+      useEffect(() => {
+        if (screen === 'road' && pushState === 'waiting') {
+          const t = setTimeout(() => setPushState('visible'), 1400);
+          return () => clearTimeout(t);
+        }
+      }, [screen, pushState]);
+
+      const openCombo = useCallback(() => { setPushState('dismissed'); setScreen('combo'); }, []);
+      const dismissPush = useCallback(() => {
+        setPushState('leaving');
+        setTimeout(() => setPushState('dismissed'), 320);
+      }, []);
+      const resendPush = useCallback(() => setPushState('visible'), []);
+      const confirmPay = useCallback(() => {
+        setPaying(true);
+        setTimeout(() => { setPaying(false); setScreen('pay'); }, 1100);
+      }, []);
+      const arrive = useCallback(() => setScreen('pickup'), []);
+      const goHome = useCallback(() => {
+        setScreen('road');
+        setPushState('waiting');
+        showToast('Вы вернулись в главное меню');
+      }, [showToast]);
+
+      const onTab = useCallback((id) => {
+        if (id === 'order') {
+          if (screen === 'road' && pushState === 'dismissed') setPushState('visible');
+          else showToast('Вы в разделе «Заказ»');
+        } else {
+          showToast('Демо MVP: доступен только сценарий «Заказ»');
+        }
+      }, [screen, pushState, showToast]);
+
+      return (
+        <div className="app-container">
+          <Header screen={screen} onBack={() => setScreen('road')} onBell={() => showToast('Новых уведомлений нет')} />
+
+          <main className="flex-1 min-h-0 relative">
+            {screen === 'road' && (
+              <RoadScreen pushState={pushState} onOpenCombo={openCombo} onDismissPush={dismissPush} onResendPush={resendPush} />
+            )}
+            {screen === 'combo' && <ComboScreen onBack={() => setScreen('road')} onConfirm={confirmPay} paying={paying} />}
+            {screen === 'pay' && <PaymentScreen onArrive={arrive} />}
+            {screen === 'pickup' && <PickupScreen onHome={goHome} />}
+          </main>
+
+          <BottomNav onTab={onTab} />
+
+          {toast && (
+            <div className="absolute bottom-[76px] left-1/2 z-50 animate-fadeUp">
+              <div className="bg-bn-ink/90 text-white text-[12px] font-semibold px-4 py-2.5 rounded-full shadow-xl whitespace-nowrap backdrop-blur">
+                {toast}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
